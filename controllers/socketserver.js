@@ -8,7 +8,6 @@ var hopeConnect = null
 exports.chat = function (io) {
   io.on('connection', function (socket) {
     socket.on('login', function () {
-      // console.log(socket.request.session)
       var user_id = socket.request.session.user._id
       userSocket[user_id] = socket
       clearTimeout(hopeConnect)
@@ -41,16 +40,15 @@ exports.chat = function (io) {
       if (data.type !== 'img') {
         data.content = data.content.replace(/\n/g,"<br/>").replace(/\s/g,"&nbsp;")
       }
-      console.log(data.content)
       var online = false
       if (liveUser[data.receiver_id] === data.receiver_id) {
         online = true
       }
 
-      let model = {
+      var model = {
         sender_id: socket.request.session.user._id,
         sender_name: data.sender_loginname,
-        sender_avatar: 'https://pic3.zhimg.com/8cb9bf3d15e1e9dac70ebbf6011e4ed6_xs.jpg',
+        sender_avatar: data.sender_avatar,
         receiver_id: data.receiver_id,
         content: data.content
       }
@@ -59,15 +57,16 @@ exports.chat = function (io) {
         if (err) {
           return
         } else {
-          ep.emit('message-saved')
+          ep.emit('message-saved', model)
         }
       })
 
-      ep.on('message-saved', function () {
+      ep.on('message-saved', function (mes) {
         if (online || data.receiver_id === null) {
           let message = {
             sender_id: socket.request.session.user._id,
             sender_loginname: data.sender_loginname,
+            sender_avatar: mes.sender_avatar,
             receiver_id: data.receiver_id,
             content: data.content,
             dowhat: 'chat'
@@ -106,6 +105,7 @@ exports.chat = function (io) {
             }
             let data = {
               loginname: user.loginname,
+              avatar: user.avatar,
               user_id: user._id,
               currentChattingUser: false,
               unreadNum: mesNum
@@ -121,6 +121,7 @@ exports.chat = function (io) {
     socket.on('load-history', function (data) {
       var user_id_me = socket.request.session.user._id
       var user_id = data.user_id
+      var skipNum = new Number(data.page)*10
       var query = {
         $or: [
           {
@@ -139,7 +140,8 @@ exports.chat = function (io) {
         }
       }
       var options = {
-        limit: 20,
+        skip: skipNum,
+        limit: 10,
         sort: '-created'
       }
       MessageProxy.loadHistory(query, options, function (err, messages) {
@@ -211,7 +213,38 @@ exports.chat = function (io) {
 
     socket.on('clear-unread-status', function (data) {
       MessageProxy.clearUnreadStatus(data.sender_id, socket.request.session.user._id, function (err) {
-        console.log(err)
+        if (err) {
+          console.log(err)
+        }
+      })
+    })
+
+    socket.on('get-info',function (data) {
+      var user_id = null
+      if (!data) {
+        user_id = socket.request.session.user._id
+      } else {
+        user_id = data
+      }
+      UserProxy.getUserById(user_id, function (err, user) {
+        let message = {
+          loginname: user.loginname,
+          email: user.email,
+          avatar: user.avatar,
+          location: user.location,
+          gender: user.gender,
+          phone: user.phone,
+          realname: user.realname
+        }
+        socket.emit('get-info', message)
+      })
+    })
+
+    socket.on('update-info', function (user) {
+      UserProxy.updateUser(user, function (err) {
+        if (err) {
+          console.log(err)
+        }
       })
     })
 

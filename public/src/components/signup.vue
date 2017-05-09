@@ -49,7 +49,7 @@
         }).then(res => {
           return res.json()
         }).then(json => {
-          console.log(json)
+          this.$message(json.message)
         }).catch(err => {
           console.log(err)
         })

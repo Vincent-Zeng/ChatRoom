@@ -15,7 +15,7 @@ exports.signUp = function (req, res, next) {
     var passwordHash = md5.update(password).digest('base64');
     User.newUser(loginname, email, passwordHash, function (err, user) {
       if (err) {
-        return nexxt(err);
+        return next(err);
       }
       let data = {
         status: 200,
@@ -81,7 +81,6 @@ exports.signIn = function (req, res, next) {
     return ep.emit("signInErr", "信息填写不完整");
   }
   User.getUserByEmail(email, function(err, user) {
-    console.log("password:" + password)
     if (err) {
       next(err)
     }
@@ -106,7 +105,8 @@ exports.auth = function (req, res, next) {
   var user = {
     loginname: req.session.user.loginname,
     email: req.session.user.email,
-    user_id: req.session.user._id
+    user_id: req.session.user._id,
+    avatar: req.session.user.avatar
   }
   res.status(200).json({
     status: 200,

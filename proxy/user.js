@@ -19,3 +19,7 @@ exports.newUser = function (loginname, email, passwordHash, callback) {
   user.password = passwordHash;
   user.save(callback);
 }
+
+exports.updateUser = function (userInfo, callback) {
+  User.update({loginname: userInfo.loginname}, userInfo, callback)
+}

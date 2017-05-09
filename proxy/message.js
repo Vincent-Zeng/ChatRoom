@@ -21,7 +21,9 @@ exports.clearUnreadStatus = function (sender_id, receiver_id, callback) {
     for (var i in messages) {
       messages[i].readed = true
       messages[i].save(function (err) {
-        console.log(err)
+        if (err) {
+          console.log(err)
+        }
       })
     }
     callback(err)

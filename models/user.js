@@ -5,7 +5,7 @@ var userSchema =mongoose.Schema({
   email: {type: String},
   password: {type: String},
 
-  avatar: {type: String, default: './static/logo.png'},
+  avatar: {type: String, default:"/static/anonym.jpg"},
   location: {type: String, default: ''},
   gender: {type: String, default: ''},
   phone: {type: String, default: ''},

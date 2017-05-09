@@ -1,6 +1,6 @@
 <template>
   <div class="hello">
-    <router-view class="router-view" :user="user"></router-view>
+    <router-view class="router-view" :user="user" @valueUp="valueUp"></router-view>
   </div>
 </template>
 
@@ -10,6 +10,11 @@ export default {
   data () {
     return {
 
+    }
+  },
+  methods: {
+    valueUp (value) {
+      this.$emit("valueUp", value)
     }
   },
   props: ['user'],

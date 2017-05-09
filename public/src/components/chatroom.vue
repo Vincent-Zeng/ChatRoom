@@ -1,37 +1,38 @@
 <template>
   <div class="chat-room">
-    <audio  class="prompt-sound" src="/static/prompt.wav"></audio>
-
-    <el-dialog title="我的资料" v-model="myInfo.show" class="my-info">
-      <el-form label-position="left" label-width="80px">
-        <el-form-item label="头像">
-          <img src="/static/test.png" />
-          <el-button type="primary" @click="">上传</el-button>
-        </el-form-item>
-        <el-form-item label="用户名">
-          <el-input v-model="myInfo.loginname" auto-complete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="邮箱">
-          <el-input v-model="myInfo.loginname" auto-complete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="性别">
-          <el-input v-model="myInfo.loginname" auto-complete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="真实姓名">
-          <el-input v-model="myInfo.loginname" auto-complete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="电话">
-          <el-input v-model="myInfo.loginname" auto-complete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="住址">
-          <el-input v-model="myInfo.loginname" auto-complete="off"></el-input>
-        </el-form-item>
-      </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="myInfo.show = false">取 消</el-button>
-        <el-button type="primary" @click="">确 定</el-button>
+    <el-dialog title="用户资料" size="tiny" v-model="userInfo.show" class="user-info">
+      <div>
+        <span class="info-left">头像</span>
+        <span class="info-right"><img :src="userInfo.avatar" /></span>
       </div>
+      <div>
+        <span class="info-left">用户名</span>
+        <span class="info-right">{{ userInfo.loginname }}</span>
+      </div>
+      <div>
+        <span class="info-left">邮箱</span>
+        <span class="info-right">{{ userInfo.email }}</span>
+      </div>
+      <div>
+        <span class="info-left">性别</span>
+        <span class="info-right">{{ userInfo.gender }}</span>
+      </div>
+      <div>
+        <span class="info-left">真实姓名</span>
+        <span class="info-right">{{ userInfo.realname }}</span>
+      </div>
+      <div>
+        <span class="info-left">电话</span>
+        <span class="info-right">{{ userInfo.phone }}</span>
+      </div>
+      <div>
+        <span class="info-left">住址</span>
+        <span class="info-right">{{ userInfo.location }}</span>
+      </div>
+
     </el-dialog>
+
+    <audio  class="prompt-sound" src="/static/prompt.wav"></audio>
 
     <div class="video-box" v-show="media.videoBox">
       <div>
@@ -59,15 +60,19 @@
           <span class="unread-num"><el-badge class="mark" :value="chatList.groupUnreadNum" /></span>
         </div>
         <div class="user-item" :class="{active: chatList.receiver_id === user.user_id}" v-for="user in liveUser" :data-user_id="user.user_id" @click="toggleChattingUser(user.user_id)">
-          <img src="./../assets/logo.png"/>
+          <img :src="user.avatar" @click="showUserInfo($event,user.user_id)"/>
           <span class="loginname">{{user.loginname}}</span>
           <span class="unread-num"><el-badge class="mark" :value="user.unreadNum" /></span>
         </div>
       </div><div class="right-panel">
         <div class="content-panel">
+          <div class="load-more" v-show="history.loadMore" @click="loadMoreHistory">
+            加载更多
+          </div>
           <div class="message-item" :class="{itemLeft: !item.me,itemRight: item.me}" v-for="item in chatPanel.messages">
             <div class="user-info">
-              <img src="./../assets/logo.png"/>
+              <img :src="user.avatar" v-show="item.me" />
+              <img :src="item.sender_avatar" v-show="!item.me" @click="showUserInfo($event,item.sender_id)" class="cursor" />
               <span>{{item.sender_loginname}}</span>
             </div>
             <div class="content" v-html="item.content">
@@ -101,6 +106,13 @@
   export default {
     data () {
       return {
+        history: {
+          loadMore: true,
+          page: 0
+        },
+        userInfo: {
+          show: false
+        },
         liveUser: [],
         chatUser: [],
         chatList: {
@@ -128,15 +140,38 @@
           show: false,
           emoj: []
         },
-        show: true,
-        myInfo: {
-          show: true,
-          loginname: 'zenghw'
-        }
+        show: true
       }
     },
     props: ['user'],
     methods: {
+      loadMoreHistory () {
+        this.history.page++
+        var user_id = this.chatList.receiver_id
+        this.loadHistory(user_id)
+      },
+      showUserInfo (e, user_id) {
+        e.stopPropagation()
+        this.userInfo.show = true
+        var socket = this.socket
+        var that = this
+
+        socket.on('get-info', function (user) {
+          let info = {
+            show: that.userInfo.show,
+            loginname: user.loginname,
+            email: user.email,
+            avatar: user.avatar,
+            location: user.location,
+            gender: user.gender,
+            phone: user.phone,
+            realname: user.realname
+          }
+          that.userInfo = info
+        })
+
+        socket.emit('get-info', user_id)
+      },
       getUserInList (userId) {
         var liveUser = this.liveUser
         var result = null
@@ -416,6 +451,7 @@
         if (message.dowhat === 'login') {
           let user = {
             loginname: message.user.loginname,
+            avatar: message.user.avatar,
             user_id: message.who,
             currentChattingUser: false,
             unreadNum: message.unreadNum
@@ -449,7 +485,7 @@
             return
           }
 
-          if (message.sender_id !== that.chatList.receiver_id && !me) {
+          if (message.sender_id !== that.chatList.receiver_id && message.receiver_id !==null && !me) {
               var user = that.getUserInList(message.sender_id)
               user.unreadNum++
               return
@@ -460,9 +496,12 @@
           let messageItem = {
             me: me,
             sender_loginname: message.sender_loginname,
+            sender_id: message.sender_id,
+            sender_avatar: message.sender_avatar,
             receiver_id: message.receiver_id,
             content: message.content
           }
+
           this.chatPanel.messages.push(messageItem)
           this.chatPanel.scroll = true
 
@@ -473,26 +512,43 @@
           }
         }
         if (message.dowhat === 'load-history') {
+          if (message.messages.length < 10) {
+            this.history.loadMore = false
+          }
           var messages = []
-          for (var item in message.messages) {
+
+          var temp = message.messages.pop()
+          while (temp) {
             var me = false
-            if (message.messages[item].sender_name === that.user.loginname) {
+            if (temp.sender_name === that.user.loginname) {
               me = true
             }
 
-            message.messages[item].content = this.transformEmoj (message.messages[item].content)
+            temp.content = this.transformEmoj (temp.content)
 
             let messageItem = {
               me: me,
-              sender_loginname: message.messages[item].sender_name,
-              receiver_id: message.messages[item].receiver_id,
-              content: message.messages[item].content
+              sender_loginname: temp.sender_name,
+              sender_id: temp.sender_id,
+              sender_avatar: temp.sender_avatar,
+              receiver_id: temp.receiver_id,
+              content: temp.content
             }
             messages.push(messageItem)
+            temp = message.messages.pop()
           }
-          messages.reverse()
+
+          messages = messages.concat(that.chatPanel.messages)
+
           this.chatPanel.messages = messages
-          this.chatPanel.scroll = true
+
+          if (this.history.page === 0) {
+            this.chatPanel.scroll = true
+          }
+
+          if (messages.length < 10) {
+            this.history.loadMore = false
+          }
         }
 
         if (message.dowhat === 'req-video') {
@@ -565,7 +621,13 @@
           user.unreadNum = 0
         }
 
+        this.history = {
+          loadMore: true,
+          page: 0
+        }
         this.clearSendBox ()
+        this.clearContentPanel ()
+
         document.getElementsByClassName('send-box')[0].focus()
         this.loadHistory(user_id)
         if (user_id !== null) {
@@ -574,14 +636,19 @@
           })
         }
       },
+      clearContentPanel () {
+        this.chatPanel.messages = []
+      },
       scrollToBottom (className) {
         var ele = document.getElementsByClassName(className)[0]
         ele.scrollTop = ele.scrollHeight
       },
       loadHistory (user_id) {
         var socket = this.socket
+        var that = this
         socket.emit('load-history', {
-          user_id: user_id
+          user_id: user_id,
+          page: that.history.page
         })
       },
       sendMessaage (e) {
@@ -590,7 +657,8 @@
           socket.emit('chat', {
             content: this.chatPanel.send_content,
             receiver_id: this.chatList.receiver_id,
-            sender_loginname: this.user.loginname
+            sender_loginname: this.user.loginname,
+            sender_avatar: this.user.avatar
           })
           this.clearSendBox ()
         }
@@ -633,6 +701,8 @@
           socket.emit('live-user')
 
           socket.on('message', that.messageRouter)
+
+          that.$emit("valueUp", socket)
         })
         this.toggleChattingUser(null)
         this.initialEmojPanel()
@@ -671,11 +741,24 @@ $color4:#258bde;
   height:520px;
   background-image: url("../assets/background.jpg");
 
-  .my-info {
-    img {
-      width:50px;
-      vertical-align: middle;
-      margin-right: 20px;
+  .user-info {
+    div {
+      line-height: 40px;
+      font-size: 16px;
+      .info-left {
+        display: inline-block;
+        width: 100px;
+        color: #888;
+      }
+      .info-right {
+        display: inline-block;
+        width: 210px;
+        vertical-align: top;
+        img {
+          width: 80px;
+          max-height: 80px;
+        }
+      }
     }
   }
   .video-box {
@@ -804,6 +887,7 @@ $color4:#258bde;
       height: 520px;
       width: 75%;
       opacity: 0.9;
+
       .content-panel {
         overflow-y: auto;
         height:320px;
@@ -812,6 +896,24 @@ $color4:#258bde;
         opacity: 0.9;
         border-bottom: 1px solid #ccc;
         padding: 10px 0;
+
+        .message-item {
+          .user-info {
+            .cursor {
+              cursor: pointer;
+            }
+          }
+        }
+        .load-more {
+          text-align: center;
+          cursor: pointer;
+          background: #ccc;
+          height: 36px;
+          line-height: 36px;
+          width: 40%;
+          border-radius: 4px;
+          margin: 0 auto;
+        }
         .itemLeft {
           width: 100%;
           float: left;
